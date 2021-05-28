@@ -1,4 +1,5 @@
 set(MORPHIO_SOURCES
+    H5Constants.cpp
     endoplasmic_reticulum.cpp
     enums.cpp
     errorMessages.cpp

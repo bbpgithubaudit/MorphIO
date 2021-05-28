@@ -22,51 +22,18 @@
 
 #include "morphologyHDF5.h"
 
+#include "../H5Constants.h"
 #include "utilsHDF5.h"
 
 #include <highfive/H5Utility.hpp>  // HighFive::SilenceHDF5
 
-namespace {
-
-constexpr size_t SECTION_START_OFFSET = 0;
-constexpr size_t SECTION_TYPE = 1;
-constexpr size_t SECTION_PARENT_OFFSET = 2;
-
 constexpr int SOMA_ONLY = -1;
-
-//{v1
-const std::string _d_structure("structure");
-const std::string _d_points("points");
-
-//{ v1.1
-const std::string _a_version("version");
-const std::string _g_metadata("metadata");
-const std::string _a_family("cell_family");
-const std::string _d_perimeters("perimeters");
-//} v1.1
-
-//{ v1.2
-const std::string _g_mitochondria("organelles/mitochondria");
-
-// endoplasmic reticulum
-const std::string _g_endoplasmic_reticulum("organelles/endoplasmic_reticulum");
-const std::string _d_section_index("section_index");
-const std::string _d_volume("volume");
-const std::string _d_surface_area("surface_area");
-const std::string _d_filament_count("filament_count");
-// } v1.2
-
-// } v1
-
-//{ v2
-const std::string _g_v2root("neuron1");
-//} v2
-
-}  // namespace
 
 namespace morphio {
 namespace readers {
 namespace h5 {
+
+using namespace morphio::h5;
 
 MorphologyHDF5::MorphologyHDF5(const HighFive::Group& group)
     : _group(group)
@@ -112,22 +79,22 @@ void MorphologyHDF5::_readMetadata(const std::string& source) {
     uint32_t minorVersion = 0;
     _properties._cellLevel._cellFamily = CellFamily::NEURON;
 
-    if (!_group.exist(_d_points) || !_group.exist(_d_structure)) {
+    if (!_group.exist(d_points()) || !_group.exist(d_structure())) {
         // h5v2 is deprecated, but it can be detected, throw a custom error messages if it is
-        if (_group.exist(_g_v2root)) {
+        if (_group.exist(g_v2root())) {
             throw RawDataError(
                 "Error in " + source +
                 "\nh5v2 is no longer supported, see: https://github.com/BlueBrain/MorphIO#H5v2");
         }
-        throw RawDataError("Missing " + _d_points + " or " + _d_structure +
+        throw RawDataError("Missing " + d_points() + " or " + d_structure() +
                            " datasets, cannot load morphology without them");
     }
 
     // if there is metadata, perhaps it's h5v1, minor version 1, 2
-    if (_group.exist(_g_metadata)) {
-        const auto metadata = _group.getGroup(_g_metadata);
-        if (metadata.hasAttribute(_a_version)) {
-            const auto attr = metadata.getAttribute(_a_version);
+    if (_group.exist(g_metadata())) {
+        const auto metadata = _group.getGroup(g_metadata());
+        if (metadata.hasAttribute(a_version())) {
+            const auto attr = metadata.getAttribute(a_version());
 
             std::array<uint32_t, 2> versions = {0, 0};
             attr.read(versions);
@@ -136,7 +103,7 @@ void MorphologyHDF5::_readMetadata(const std::string& source) {
 
             if (majorVersion == 1 && (minorVersion == 1 || minorVersion == 2)) {
                 uint32_t family;
-                metadata.getAttribute(_a_family).read(family);
+                metadata.getAttribute(a_family()).read(family);
                 _properties._cellLevel._cellFamily = static_cast<CellFamily>(family);
             } else {
                 throw RawDataError("Error in " + source +
@@ -148,7 +115,7 @@ void MorphologyHDF5::_readMetadata(const std::string& source) {
                                    "index.html for the list of supported versions.");
             }
         } else {
-            throw RawDataError("Missing " + _a_version +
+            throw RawDataError("Missing " + a_version() +
                                " attribute, cannot load morphology without them");
         }
     }
@@ -159,7 +126,7 @@ void MorphologyHDF5::_readMetadata(const std::string& source) {
 void MorphologyHDF5::_readPoints(int firstSectionOffset) {
     constexpr size_t pointColumns = 4;
 
-    const auto pointsDataSet = _group.getDataSet(_d_points);
+    const auto pointsDataSet = _group.getDataSet(d_points());
     const auto pointsDims = pointsDataSet.getSpace().getDimensions();
     const size_t numberPoints = pointsDims[0];
 
@@ -221,7 +188,7 @@ int MorphologyHDF5::_readSections() {
 
     constexpr size_t structureV1Columns = 3;
 
-    const auto structure = _group.getDataSet(_d_structure);
+    const auto structure = _group.getDataSet(d_structure());
     const auto dims = structure.getSpace().getDimensions();
 
     if (dims.size() != 2 || dims[1] != structureV1Columns) {
@@ -287,7 +254,7 @@ void MorphologyHDF5::_readPerimeters(int firstSectionOffset) {
         return;
     }
 
-    if (!_group.exist(_d_perimeters)) {
+    if (!_group.exist(d_perimeters())) {
         if (_properties._cellLevel._cellFamily == GLIA) {
             throw RawDataError("No empty perimeters allowed for glia morphology");
         }
@@ -295,7 +262,7 @@ void MorphologyHDF5::_readPerimeters(int firstSectionOffset) {
     }
 
     auto& perimeters = _properties.get_mut<Property::Perimeter>();
-    _read("/", _d_perimeters, 1, perimeters);
+    _read("/", d_perimeters(), 1, perimeters);
     perimeters.erase(perimeters.begin(), perimeters.begin() + firstSectionOffset);
 }
 
@@ -322,39 +289,39 @@ void MorphologyHDF5::_read(const std::string& groupName,
 }
 
 void MorphologyHDF5::_readEndoplasmicReticulum() {
-    if (!_group.exist(_g_endoplasmic_reticulum)) {
+    if (!_group.exist(g_endoplasmic_reticulum())) {
         return;
     }
 
-    const auto group = _group.getGroup(_g_endoplasmic_reticulum);
+    const auto group = _group.getGroup(g_endoplasmic_reticulum());
 
-    _read(_g_endoplasmic_reticulum,
-          _d_section_index,
+    _read(g_endoplasmic_reticulum(),
+          d_section_index(),
           1,
           _properties._endoplasmicReticulumLevel._sectionIndices);
-    _read(_g_endoplasmic_reticulum,
-          _d_volume,
+    _read(g_endoplasmic_reticulum(),
+          d_volume(),
           1,
           _properties._endoplasmicReticulumLevel._volumes);
-    _read(_g_endoplasmic_reticulum,
-          _d_surface_area,
+    _read(g_endoplasmic_reticulum(),
+          d_surface_area(),
           1,
           _properties._endoplasmicReticulumLevel._surfaceAreas);
-    _read(_g_endoplasmic_reticulum,
-          _d_filament_count,
+    _read(g_endoplasmic_reticulum(),
+          d_filament_count(),
           1,
           _properties._endoplasmicReticulumLevel._filamentCounts);
 }
 
 void MorphologyHDF5::_readMitochondria() {
-    if (!_group.exist(_g_mitochondria)) {
+    if (!_group.exist(g_mitochondria())) {
         return;
     }
 
-    const auto group = _group.getGroup(_g_mitochondria);
+    const auto group = _group.getGroup(g_mitochondria());
 
     std::vector<std::vector<floatType>> points;
-    _read(_g_mitochondria, _d_points, 2, points);
+    _read(g_mitochondria(), d_points(), 2, points);
 
     auto& mitoSectionId = _properties.get_mut<Property::MitoNeuriteSectionId>();
     auto& pathlength = _properties.get_mut<Property::MitoPathLength>();
@@ -362,6 +329,7 @@ void MorphologyHDF5::_readMitochondria() {
     mitoSectionId.reserve(mitoSectionId.size() + points.size());
     pathlength.reserve(pathlength.size() + points.size());
     diameters.reserve(diameters.size() + points.size());
+
     for (const auto& p : points) {
         mitoSectionId.push_back(static_cast<Property::MitoNeuriteSectionId::Type>(p[0]));
         pathlength.push_back(p[1]);
@@ -369,7 +337,7 @@ void MorphologyHDF5::_readMitochondria() {
     }
 
     std::vector<std::vector<int32_t>> structure;
-    _read(_g_mitochondria, _d_structure, 2, structure);
+    _read(g_mitochondria(), d_structure(), 2, structure);
 
     auto& mitoSection = _properties.get_mut<Property::MitoSection>();
     mitoSection.reserve(mitoSection.size() + structure.size());

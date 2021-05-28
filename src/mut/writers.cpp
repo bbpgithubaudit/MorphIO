@@ -8,11 +8,16 @@
 #include <morphio/mut/writers.h>
 #include <morphio/version.h>
 
+#include "../H5Constants.h"
+
 #include <highfive/H5DataSet.hpp>
 #include <highfive/H5File.hpp>
 #include <highfive/H5Object.hpp>
 
 namespace {
+
+constexpr uint32_t h5MajorVersion = 1;
+constexpr uint32_t h5MinorVersion = 2;
 
 /**
    A structure to get the base type of nested vectors
@@ -267,25 +272,25 @@ static void mitochondriaH5(HighFive::File& h5_file, const Mitochondria& mitochon
         structure.push_back({section[0], section[1]});
     }
 
-    HighFive::Group g_organelles = h5_file.createGroup("organelles");
-    HighFive::Group g_mitochondria = g_organelles.createGroup("mitochondria");
+    HighFive::Group g_mitochondria = h5_file.createGroup(morphio::h5::g_mitochondria());
 
-    write_dataset(g_mitochondria, "points", points);
-    write_dataset(g_mitochondria, "structure", structure);
+    write_dataset(g_mitochondria, morphio::h5::d_points(), points);
+    write_dataset(g_mitochondria, morphio::h5::d_structure(), structure);
 }
 
 
 static void endoplasmicReticulumH5(HighFive::File& h5_file, const EndoplasmicReticulum& reticulum) {
+    using namespace morphio::h5;
+
     if (reticulum.sectionIndices().empty())
         return;
 
-    HighFive::Group g_organelles = h5_file.createGroup("organelles");
-    HighFive::Group g_reticulum = g_organelles.createGroup("endoplasmic_reticulum");
+    HighFive::Group g_reticulum = h5_file.createGroup(g_endoplasmic_reticulum());
 
-    write_dataset(g_reticulum, "section_index", reticulum.sectionIndices());
-    write_dataset(g_reticulum, "volume", reticulum.volumes());
-    write_dataset(g_reticulum, "filament_count", reticulum.filamentCounts());
-    write_dataset(g_reticulum, "surface_area", reticulum.surfaceAreas());
+    write_dataset(g_reticulum, d_section_index(), reticulum.sectionIndices());
+    write_dataset(g_reticulum, d_volume(), reticulum.volumes());
+    write_dataset(g_reticulum, d_filament_count(), reticulum.filamentCounts());
+    write_dataset(g_reticulum, d_surface_area(), reticulum.surfaceAreas());
 }
 
 
@@ -369,19 +374,21 @@ void h5(const Morphology& morpho, const std::string& filename) {
         offset += numberOfPoints;
     }
 
-    write_dataset(h5_file, "/points", raw_points);
-    write_dataset(h5_file, "/structure", raw_structure);
+    write_dataset(h5_file, morphio::h5::d_points(), raw_points);
+    write_dataset(h5_file, morphio::h5::d_structure(), raw_structure);
 
-    HighFive::Group g_metadata = h5_file.createGroup("metadata");
+    HighFive::Group g_metadata = h5_file.createGroup(morphio::h5::g_metadata());
 
-    write_attribute(g_metadata, "version", std::vector<uint32_t>{1, 2});
     write_attribute(g_metadata,
-                    "cell_family",
+                    morphio::h5::a_version(),
+                    std::vector<uint32_t>{h5MajorVersion, h5MinorVersion});
+    write_attribute(g_metadata,
+                    morphio::h5::a_family(),
                     std::vector<uint32_t>{static_cast<uint32_t>(morpho.cellFamily())});
     write_attribute(h5_file, "comment", std::vector<std::string>{version_string()});
 
     if (hasPerimeterData_) {
-        write_dataset(h5_file, "/perimeters", raw_perimeters);
+        write_dataset(h5_file, morphio::h5::d_perimeters(), raw_perimeters);
     }
 
     mitochondriaH5(h5_file, morpho.mitochondria());
