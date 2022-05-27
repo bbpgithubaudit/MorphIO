@@ -26,29 +26,41 @@ morphio::readers::Sample readSample(const std::string& line, unsigned int lineNu
 
     morphio::readers::Sample sample;
     bool valid = true;
-    auto readLong = [&valid](const char *nptr, char **endptr, auto& dst){ 
-        dst = static_cast<typename std::remove_reference<decltype(dst)>::type>(std::strtoul(nptr, endptr, 10));
-                          valid = true;};
-    auto readFloat = [&valid](const char *nptr, char **endptr, auto& dst){
-        dst = std::strtof(nptr, endptr); valid = true;};
-
     char* start = const_cast<char*>(line.data());
     char* end = start + line.length();
 
-    readLong(start, &end, sample.id);
-    start = end; end = const_cast<char*>(line.data()) + line.length();
-    readLong(start, &end, int_type);
-    start = end; end = const_cast<char*>(line.data()) + line.length();
-    readFloat(start, &end, sample.point[0]);
-    start = end; end = const_cast<char*>(line.data()) + line.length();
-    readFloat(start, &end, sample.point[1]);
-    start = end; end = const_cast<char*>(line.data()) + line.length();
-    readFloat(start, &end, sample.point[2]);
-    start = end; end = const_cast<char*>(line.data()) + line.length();
-    readFloat(start, &end, radius);
-    start = end; end = const_cast<char*>(line.data()) + line.length();
-    readLong(start, &end, sample.parentId);
-    start = end; end = const_cast<char*>(line.data()) + line.length();
+    auto readLong = [&](auto& dst){ 
+        errno = 0;
+        unsigned long res = std::strtoul(start, &end, 10);
+        dst = static_cast<typename std::remove_reference<decltype(dst)>::type>(res);
+        if(dst == 0 && errno != 0) {
+            valid = false;
+            return;
+        }
+        valid = true;
+        start = end;
+        end = const_cast<char*>(line.data()) + line.length();
+    };
+    auto readFloat = [&line, &valid, &start, &end](auto& dst){
+        dst = std::strtof(start, &end);
+        errno = 0;
+        if(dst == 0.f && errno != 0) {
+            valid = false;
+            return;
+        }
+        valid = true;
+        start = end;
+        end = const_cast<char*>(line.data()) + line.length();
+    };
+
+
+    readLong(sample.id);
+    readLong(int_type);
+    readFloat(sample.point[0]);
+    readFloat(sample.point[1]);
+    readFloat(sample.point[2]);
+    readFloat(radius);
+    readLong(sample.parentId);
 
     sample.type = static_cast<morphio::SectionType>(int_type);
     sample.diameter = radius * 2;  // The point array stores diameters.
