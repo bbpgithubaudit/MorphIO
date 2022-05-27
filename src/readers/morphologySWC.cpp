@@ -20,28 +20,23 @@ bool _ignoreLine(const std::string& line) {
 }
 
 morphio::readers::Sample readSample(const char* line, unsigned int lineNumber_) {
-#ifdef MORPHIO_USE_DOUBLE
-    const char *const format = "%20u%20d%20lg%20lg%20lg%20lg%20d";
-#else
-    const char *const format = "%20u%20d%20f%20f%20f%20f%20d";
-#endif
-
     morphio::floatType radius = -1.;
     int int_type = -1;
+
     morphio::readers::Sample sample;
-    sample.valid = sscanf(line,
-                          format,
-                          &sample.id,
-                          &int_type,
-                          &sample.point[0],
-                          &sample.point[1],
-                          &sample.point[2],
-                          &radius,
-                          &sample.parentId) == 7;
+
+    readLong(id);
+    readLong(int_type);
+    readFloat(sample.point[0]);
+    readFloat(sample.point[1]);
+    readFloat(sample.point[2]);
+    readFloat(radius);
+    readLong(parent_id);
 
     sample.type = static_cast<morphio::SectionType>(int_type);
     sample.diameter = radius * 2;  // The point array stores diameters.
     sample.lineNumber = lineNumber_;
+    sample.valid = true;
     return sample;
 }
 
