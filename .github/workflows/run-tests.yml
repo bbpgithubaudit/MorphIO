@@ -53,3 +53,11 @@ jobs:
           ./ci/python_test.sh
           ./ci/cpp_test.sh
           ./ci/cpp_test.sh "-DMORPHIO_USE_DOUBLE=ON"
+
+      - name: Build and install
+        env:
+          CC: ${{ matrix.compiler.CC }}
+          CXX: ${{ matrix.compiler.CXX }}
+
+        run: |
+          ./ci/local_install_test.sh
