@@ -2,9 +2,8 @@ if (NOT EXTERNAL_PYBIND11)
     add_subdirectory(pybind11 EXCLUDE_FROM_ALL)
 endif()
 
-pybind11_add_module(_morphio SYSTEM
+pybind11_add_module(_morphio
     morphio.cpp
-
     bind_enums.cpp
     bind_immutable.cpp
     bind_misc.cpp
@@ -17,3 +16,5 @@ target_link_libraries(_morphio
     PRIVATE morphio_static
     PRIVATE pybind11::module
 )
+
+install(TARGETS _morphio DESTINATION morphio)
